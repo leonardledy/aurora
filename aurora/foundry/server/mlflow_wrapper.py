@@ -9,11 +9,11 @@ from uuid import uuid4
 import mlflow.pyfunc
 from pydantic import BaseModel, HttpUrl
 
-from aurora.foundry.common.channel import (
+from Aurora_Codebase.aurora.foundry.common.channel import (
     BlobStorageChannel,
     iterate_prediction_files,
 )
-from aurora.foundry.common.model import MLFLOW_ARTIFACTS, models
+from Aurora_Codebase.aurora.foundry.common.model import MLFLOW_ARTIFACTS, models
 
 __all__ = ["AuroraModelWrapper"]
 

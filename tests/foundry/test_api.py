@@ -5,7 +5,7 @@ from datetime import datetime
 import torch
 
 from aurora import Batch, Metadata
-from aurora.foundry import submit
+from Aurora_Codebase.aurora.foundry import submit
 
 
 def test_api(tmp_path, mock_foundry_client: dict):

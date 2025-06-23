@@ -11,6 +11,8 @@ from timm.layers import to_2tuple
 
 from aurora.model.fourier import FourierExpansion
 
+from Aurora_Codebase.aurora.model.fourier import FourierExpansion
+
 __all__ = ["pos_scale_enc"]
 
 

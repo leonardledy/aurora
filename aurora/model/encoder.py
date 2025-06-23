@@ -8,19 +8,19 @@ import torch
 from einops import rearrange
 from torch import nn
 
-from aurora.batch import Batch
-from aurora.model.fourier import (
+from Aurora_Codebase.aurora.batch import Batch
+from Aurora_Codebase.aurora.model.fourier import (
     absolute_time_expansion,
     lead_time_expansion,
     levels_expansion,
     pos_expansion,
     scale_expansion,
 )
-from aurora.model.levelcond import LevelConditioned
-from aurora.model.patchembed import LevelPatchEmbed
-from aurora.model.perceiver import MLP, PerceiverResampler
-from aurora.model.posencoding import pos_scale_enc
-from aurora.model.util import (
+from Aurora_Codebase.aurora.model.levelcond import LevelConditioned
+from Aurora_Codebase.aurora.model.patchembed import LevelPatchEmbed
+from Aurora_Codebase.aurora.model.perceiver import MLP, PerceiverResampler
+from Aurora_Codebase.aurora.model.posencoding import pos_scale_enc
+from Aurora_Codebase.aurora.model.util import (
     check_lat_lon_dtype,
     init_weights,
 )
@@ -183,12 +183,12 @@ class Perceiver3DEncoder(nn.Module):
         """
         B, _, L, _ = x.shape
         latents = self.atmos_latents.to(dtype=x.dtype)
-        latents = latents.unsqueeze(1).expand(B, -1, L, -1)  # (C_A, D) to (B, C_A, L, D)
+        latents = latents.unsqueeze(1).expand(B, -1, L, -1)  # (C, D) to (B, C, L, D)
 
         x = torch.einsum("bcld->blcd", x)
         x = x.flatten(0, 1)  # (B * L, C_A, D)
         latents = torch.einsum("bcld->blcd", latents)
-        latents = latents.flatten(0, 1)  # (B * L, C_A, D)
+        latents = latents.flatten(0, 1)  # (B * L, C, D)
 
         x = self.level_agg(latents, x)  # (B * L, C, D)
         x = x.unflatten(dim=0, sizes=(B, L))  # (B, L, C, D)
@@ -210,12 +210,21 @@ class Perceiver3DEncoder(nn.Module):
         atmos_vars = tuple(batch.atmos_vars.keys())
         atmos_levels = batch.metadata.atmos_levels
 
-        x_surf = torch.stack(tuple(batch.surf_vars.values()), dim=2)
-        x_static = torch.stack(tuple(batch.static_vars.values()), dim=2)
-        x_atmos = torch.stack(tuple(batch.atmos_vars.values()), dim=2)
+        x_surf = torch.stack(
+            tuple(batch.surf_vars.values()), dim=2
+        )  # (B, T, V_surf, H, W)
+        x_static = torch.stack(
+            tuple(batch.static_vars.values()), dim=2
+        )  # (B, T, V_static, H, W)
+        x_atmos = torch.stack(
+            tuple(batch.atmos_vars.values()), dim=2
+        )  # (B, T, V_atmos, C_A, H, W)
 
         B, T, _, C, H, W = x_atmos.size()
-        assert x_surf.shape[:2] == (B, T), f"Expected shape {(B, T)}, got {x_surf.shape[:2]}."
+        assert x_surf.shape[:2] == (
+            B,
+            T,
+        ), f"Expected shape {(B, T)}, got {x_surf.shape[:2]}."
 
         if static_vars is None:
             assert x_static is None, "Static variables given, but not configured."
@@ -243,8 +252,17 @@ class Perceiver3DEncoder(nn.Module):
                     ],
                     dim=0,
                 )
-                dynamic_vars = ("tod_cos", "tod_sin", "dow_cos", "dow_sin", "doy_cos", "doy_sin")
-                x_surf = torch.cat((x_surf, x_static, x_dynamic), dim=2)
+                dynamic_vars = (
+                    "tod_cos",
+                    "tod_sin",
+                    "dow_cos",
+                    "dow_sin",
+                    "doy_cos",
+                    "doy_sin",
+                )
+                x_surf = torch.cat(
+                    (x_surf, x_static, x_dynamic), dim=2
+                )  # (B, T, V_surf + V_static + V_dynamic, H, W)
                 surf_vars = surf_vars + static_vars + dynamic_vars
 
                 # Add to atmospheric variables too.
@@ -285,8 +303,12 @@ class Perceiver3DEncoder(nn.Module):
 
         # Patch embed the surface level.
         x_surf = rearrange(x_surf, "b t v h w -> b v t h w")
-        x_surf = self.surf_token_embeds(x_surf, surf_vars)  # (B, L, D)
-        dtype = x_surf.dtype  # When using mixed precision, we need to keep track of the dtype.
+        x_surf = self.surf_token_embeds(
+            x_surf, surf_vars
+        )  # (B, L, D) with L = (H/P)*(W/P)
+        dtype = (
+            x_surf.dtype
+        )  # When using mixed precision, we need to keep track of the dtype.
 
         # In the original implementation, both `z` and `static_z` point towards the same index,
         # meaning that they select the same slice. Simulate this bug.
@@ -306,11 +328,15 @@ class Perceiver3DEncoder(nn.Module):
         if not self.level_condition:
             x_atmos = rearrange(x_atmos, "b t v c h w -> (b c) v t h w")
             x_atmos = self.atmos_token_embeds(x_atmos, atmos_vars)
-            x_atmos = rearrange(x_atmos, "(b c) l d -> b c l d", b=B, c=C)
+            x_atmos = rearrange(
+                x_atmos, "(b c) l d -> b c l d", b=B, c=C
+            )  # (B, C_A, L, D)
         else:
             # In this case we need to keep the levels dimension separate.
             x_atmos = rearrange(x_atmos, "b t v c h w -> b c v t h w")
-            x_atmos = self.atmos_token_embeds(x_atmos, atmos_vars, levels=atmos_levels)
+            x_atmos = self.atmos_token_embeds(
+                x_atmos, atmos_vars, levels=atmos_levels
+            )  # (B, C_A, L, D)
             # The levels dimension is now already in the right place.
 
         # Add surface level encoding. This helps the model distinguish between surface and
@@ -321,15 +347,21 @@ class Perceiver3DEncoder(nn.Module):
 
         # Add atmospheric pressure encoding of shape (C_A, D) and subsequent embedding.
         atmos_levels_tensor = torch.tensor(atmos_levels, device=x_atmos.device)
-        atmos_levels_encode = levels_expansion(atmos_levels_tensor, self.embed_dim).to(dtype=dtype)
-        atmos_levels_embed = self.atmos_levels_embed(atmos_levels_encode)[None, :, None, :]
+        atmos_levels_encode = levels_expansion(atmos_levels_tensor, self.embed_dim).to(
+            dtype=dtype
+        )
+        atmos_levels_embed = self.atmos_levels_embed(atmos_levels_encode)[
+            None, :, None, :
+        ]
         x_atmos = x_atmos + atmos_levels_embed  # (B, C_A, L, D)
 
         # Aggregate over pressure levels.
-        x_atmos = self.aggregate_levels(x_atmos)  # (B, C_A, L, D) to (B, C, L, D)
+        x_atmos = self.aggregate_levels(
+            x_atmos
+        )  # (B, C_A, L, D) to (B, C, L, D) with C = latent_levels - 1
 
         # Concatenate the surface level with the amospheric levels.
-        x = torch.cat((x_surf.unsqueeze(1), x_atmos), dim=1)
+        x = torch.cat((x_surf.unsqueeze(1), x_atmos), dim=1)  # (B, latent_levels, L, D)
 
         # Add position and scale embeddings to the 3D tensor.
         pos_encode, scale_encode = pos_scale_enc(
@@ -346,7 +378,9 @@ class Perceiver3DEncoder(nn.Module):
         x = x + pos_encode + scale_encode
 
         # Flatten the tokens.
-        x = x.reshape(B, -1, self.embed_dim)  # (B, C + 1, L, D) to (B, L', D)
+        x = x.reshape(
+            B, -1, self.embed_dim
+        )  # (B, C + 1, L, D) to (B, L', D) with L' = (C+1)*L = latent_levels*L
 
         # Add lead time embedding.
         lead_hours = lead_time.total_seconds() / 3600

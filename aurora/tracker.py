@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import gaussian_filter, minimum_filter
 
-from aurora.batch import Batch
+from Aurora_Codebase.aurora.batch import Batch
 
 __all__ = ["Tracker"]
 

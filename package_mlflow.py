@@ -8,8 +8,8 @@ from pathlib import Path
 import mlflow.pyfunc
 from huggingface_hub import hf_hub_download
 
-from aurora.foundry.common.model import models
-from aurora.foundry.server.mlflow_wrapper import AuroraModelWrapper
+from Aurora_Codebase.aurora.foundry.common.model import models
+from Aurora_Codebase.aurora.foundry.server.mlflow_wrapper import AuroraModelWrapper
 
 artifacts: dict[str, str] = {}
 

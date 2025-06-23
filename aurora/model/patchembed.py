@@ -45,7 +45,7 @@ class LevelPatchEmbed(nn.Module):
 
         self.weights = nn.ParameterDict(
             {
-                # Shape (C_out, C_in, T, H, W). `C_in = 1` here because we're embedding every
+                # Shape (C_out, C_in, T, P, P). `C_in = 1` here because we're embedding every
                 # variable separately.
                 name: nn.Parameter(torch.empty(embed_dim, 1, *self.kernel_size))
                 for name in var_names
@@ -99,7 +99,7 @@ class LevelPatchEmbed(nn.Module):
         # Select the weights of the variables and history dimensions that are present in the batch.
         weight = torch.cat(
             [
-                # (C_out, C_in, T, H, W)
+                # (C_out, C_in, T, P, P)
                 self.weights[name][:, :, :T, ...]
                 for name in var_names
             ],

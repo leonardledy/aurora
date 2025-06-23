@@ -1,7 +1,7 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-from aurora.batch import Batch, Metadata
-from aurora.model.aurora import (
+from Aurora_Codebase.aurora.batch import Batch, Metadata
+from Aurora_Codebase.aurora.model.aurora import (
     Aurora,
     Aurora12hPretrained,
     AuroraAirPollution,
@@ -9,10 +9,9 @@ from aurora.model.aurora import (
     AuroraPretrained,
     AuroraSmall,
     AuroraSmallPretrained,
-    AuroraWave,
 )
-from aurora.rollout import rollout
-from aurora.tracker import Tracker
+from Aurora_Codebase.aurora.rollout import rollout
+from Aurora_Codebase.aurora.tracker import Tracker
 
 __all__ = [
     "Aurora",

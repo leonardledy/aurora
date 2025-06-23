@@ -9,7 +9,7 @@ it will have an endpoint URL and access token.
 Then create a `FoundryClient` using this URL and token:
 
 ```python
-from aurora.foundry import FoundryClient
+from Aurora_Codebase.aurora.foundry import FoundryClient
 
 foundry_client = FoundryClient(
     endpoint="https://endpoint_url/",
@@ -23,7 +23,7 @@ Create one, and generate a URL that includes a SAS token _with both read and wri
 Then create `BlobStorageChannel` with the blob storage container URL with SAS appended:
 
 ```python
-from aurora.foundry import BlobStorageChannel
+from Aurora_Codebase.aurora.foundry import BlobStorageChannel
 
 channel = BlobStorageChannel(
     "https://my.blob.core.windows.net/container/folder?<READ_WRITE_SAS_TOKEN>"
@@ -49,7 +49,7 @@ from datetime import datetime
 import torch
 from aurora import Batch, Metadata
 
-from aurora.foundry import submit
+from Aurora_Codebase.aurora.foundry import submit
 
 
 initial_condition = Batch(

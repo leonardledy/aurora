@@ -13,8 +13,8 @@ import requests
 from azure.storage.blob import BlobClient
 from huggingface_hub import hf_hub_download
 
-from aurora.foundry import BlobStorageChannel, FoundryClient
-from aurora.foundry.server.mlflow_wrapper import AuroraModelWrapper
+from Aurora_Codebase.aurora.foundry import BlobStorageChannel, FoundryClient
+from Aurora_Codebase.aurora.foundry.server.mlflow_wrapper import AuroraModelWrapper
 
 T = TypeVar("T")
 

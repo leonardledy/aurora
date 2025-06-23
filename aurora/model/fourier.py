@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from aurora.area import area, radius_earth
+from Aurora_Codebase.aurora.area import area, radius_earth
 
 __all__ = [
     "FourierExpansion",

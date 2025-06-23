@@ -61,7 +61,7 @@ so significant additional fine-tuning may be required to get to the desired leve
 
 ```python
 from aurora import AuroraPretrained
-from aurora.normalisation import locations, scales
+from Aurora_Codebase.aurora.normalisation import locations, scales
 
 model = AuroraPretrained(stabilise_level_agg=True)  # Insert extra layer norm. to mitigate exploding gradients.
 model.load_checkpoint(strict=False)
@@ -75,7 +75,7 @@ When you add a new variable, you also need to set the normalisation statistics.
 
 ```python
 from aurora import AuroraPretrained
-from aurora.normalisation import locations, scales
+from Aurora_Codebase.aurora.normalisation import locations, scales
 
 model = AuroraPretrained(
     surf_vars=("2t", "10u", "10v", "msl", "new_surf_var"),

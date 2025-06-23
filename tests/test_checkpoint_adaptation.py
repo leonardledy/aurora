@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from aurora.model.aurora import AuroraSmallPretrained
+from Aurora_Codebase.aurora.model.aurora import AuroraSmallPretrained
 
 
 @pytest.fixture

@@ -5,8 +5,8 @@ from typing import Generator
 
 import torch
 
-from aurora.batch import Batch
-from aurora.model.aurora import Aurora
+from Aurora_Codebase.aurora.batch import Batch
+from Aurora_Codebase.aurora.model.aurora import Aurora
 
 __all__ = ["rollout"]
 
@@ -31,7 +31,7 @@ def rollout(model: Aurora, batch: Batch, steps: int) -> Generator[Batch, None, N
     batch = batch.to(p.device)
 
     for _ in range(steps):
-        pred = model.forward(batch)
+        pred = model.forward(batch).to(p.device)
 
         yield pred
 

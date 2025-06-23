@@ -14,16 +14,16 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from aurora.batch import Batch
-from aurora.model.compat import (
+from Aurora_Codebase.aurora.batch import Batch
+from Aurora_Codebase.aurora.model.compat import (
     _adapt_checkpoint_air_pollution,
     _adapt_checkpoint_pretrained,
     _adapt_checkpoint_wave,
 )
-from aurora.model.decoder import Perceiver3DDecoder
-from aurora.model.encoder import Perceiver3DEncoder
-from aurora.model.lora import LoRAMode
-from aurora.model.swin3d import Swin3DTransformerBackbone
+from Aurora_Codebase.aurora.model.decoder import Perceiver3DDecoder
+from Aurora_Codebase.aurora.model.encoder import Perceiver3DEncoder
+from Aurora_Codebase.aurora.model.lora import LoRAMode
+from Aurora_Codebase.aurora.model.swin3d import Swin3DTransformerBackbone
 
 __all__ = [
     "Aurora",
@@ -41,6 +41,8 @@ class Aurora(torch.nn.Module):
     """The Aurora model.
 
     Defaults to the 1.3 B parameter configuration.
+
+    MODIFIED FOR NAIVE PARALLELISM
     """
 
     default_checkpoint_repo = "microsoft/aurora"
@@ -89,6 +91,7 @@ class Aurora(torch.nn.Module):
         positive_atmos_vars: tuple[str, ...] = (),
         clamp_at_first_step: bool = False,
         simulate_indexing_bug: bool = False,
+        devices: Optional[list[str]] = None,
     ) -> None:
         """Construct an instance of the model.
 
@@ -186,6 +189,25 @@ class Aurora(torch.nn.Module):
         self.positive_atmos_vars = positive_atmos_vars
         self.clamp_at_first_step = clamp_at_first_step
 
+        # Configure devices - default to three GPUs if not specified
+        self.devices = devices or ["cuda:0", "cuda:1", "cuda:2"]
+        self.encoder_device = self.devices[0]
+        self.backbone_device = self.devices[1]
+        self.decoder_device = self.devices[2]
+
+        if len(self.devices) < 3:
+            warnings.warn(
+                f"Naive parallelism requires at least 3 devices, but only {len(self.devices)} provided. "
+                f"Some model components will share devices.",
+                stacklevel=2,
+            )
+            # Ensure we have at least references to 3 devices (can be duplicates)
+            while len(self.devices) < 3:
+                self.devices.append(self.devices[-1])
+            self.encoder_device = self.devices[0]
+            self.backbone_device = self.devices[1]
+            self.decoder_device = self.devices[2]
+
         if self.surf_stats:
             warnings.warn(
                 f"The normalisation statics for the following surface-level variables are manually "
@@ -213,7 +235,7 @@ class Aurora(torch.nn.Module):
             dynamic_vars=dynamic_vars,
             atmos_static_vars=atmos_static_vars,
             simulate_indexing_bug=simulate_indexing_bug,
-        )
+        ).to(self.encoder_device)
 
         self.backbone = Swin3DTransformerBackbone(
             window_size=window_size,
@@ -228,7 +250,7 @@ class Aurora(torch.nn.Module):
             use_lora=use_lora,
             lora_steps=lora_steps,
             lora_mode=lora_mode,
-        )
+        ).to(self.backbone_device)
 
         self.decoder = Perceiver3DDecoder(
             surf_vars=surf_vars,
@@ -246,7 +268,7 @@ class Aurora(torch.nn.Module):
             level_condition=level_condition,
             separate_perceiver=separate_perceiver,
             modulation_head=modulation_head,
-        )
+        ).to(self.decoder_device)
 
         if autocast and not bf16_mode:
             warnings.warn(
@@ -277,7 +299,7 @@ class Aurora(torch.nn.Module):
         batch = batch.type(p.dtype)
         batch = batch.normalise(surf_stats=self.surf_stats)
         batch = batch.crop(patch_size=self.patch_size)
-        batch = batch.to(p.device)
+        # batch = batch.to(p.device)
 
         H, W = batch.spatial_shape
         patch_res = (
@@ -315,14 +337,20 @@ class Aurora(torch.nn.Module):
                 },
             )
 
-        transformed_batch = self._pre_encoder_hook(transformed_batch)
+        transformed_batch = self._pre_encoder_hook(transformed_batch).to(
+            self.encoder_device
+        )
 
         # The encoder is always just run.
         x = self.encoder(
             transformed_batch,
             lead_time=self.timestep,
-        )
+        )# (B, L', D) with L' = latent_levels * (H/P) * (W/P)
+        torch.cuda.synchronize(self.encoder_device)  # Ensure completion before transfer
 
+        # Move to backbone device
+        x = x.to(self.backbone_device)
+        
         # In BF16 mode, the backbone is run in pure BF16.
         if self.bf16_mode:
             x = x.to(torch.bfloat16)
@@ -331,7 +359,12 @@ class Aurora(torch.nn.Module):
             lead_time=self.timestep,
             patch_res=patch_res,
             rollout_step=batch.metadata.rollout_step,
-        )
+        )  # (B, L', 2*D)
+        torch.cuda.synchronize(self.backbone_device)
+
+        # Move to decoder device
+        x = x.to(self.decoder_device)
+        batch = batch.to(self.decoder_device)  # batch still needed by decoder
 
         # In BF16 mode, the decoder is run in AMP PF16, and the output is converted back to FP32.
         # We run in PF16 as opposed to BF16 for improved relative precision.

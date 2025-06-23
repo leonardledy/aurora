@@ -24,6 +24,13 @@ from aurora.model.util import init_weights, maybe_adjust_windows
 
 __all__ = ["Swin3DTransformerBackbone"]
 
+from Aurora_Codebase.aurora.model.film import AdaptiveLayerNorm
+from Aurora_Codebase.aurora.model.fourier import lead_time_expansion
+from Aurora_Codebase.aurora.model.lora import LoRAMode, LoRARollout
+from Aurora_Codebase.aurora.model.util import init_weights, maybe_adjust_windows
+
+__all__ = ["Swin3DTransformer²Backbone"]
+
 
 class MLP(nn.Module):
     """A one-hidden-layer MLP with dropout after the hidden layer and at the end."""

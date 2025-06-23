@@ -11,7 +11,7 @@ import torch
 from huggingface_hub import hf_hub_download
 
 from aurora import Batch, Metadata
-from aurora.batch import interpolate_numpy
+from Aurora_Codebase.aurora.batch import interpolate_numpy
 
 
 class SavedMetadata(TypedDict):

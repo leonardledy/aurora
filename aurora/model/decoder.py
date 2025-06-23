@@ -7,11 +7,11 @@ import torch
 from einops import rearrange
 from torch import nn
 
-from aurora.batch import Batch, Metadata
-from aurora.model.fourier import levels_expansion
-from aurora.model.levelcond import LevelConditioned
-from aurora.model.perceiver import PerceiverResampler
-from aurora.model.util import (
+from Aurora_Codebase.aurora.batch import Batch, Metadata
+from Aurora_Codebase.aurora.model.fourier import levels_expansion
+from Aurora_Codebase.aurora.model.levelcond import LevelConditioned
+from Aurora_Codebase.aurora.model.perceiver import PerceiverResampler
+from Aurora_Codebase.aurora.model.util import (
     check_lat_lon_dtype,
     init_weights,
     unpatchify,
@@ -174,7 +174,7 @@ class Perceiver3DDecoder(nn.Module):
         """Forward pass.
 
         Args:
-            x (torch.Tensor): Backbone output of shape `(B, L, D)`.
+            x (torch.Tensor): Backbone output of shape `(B, L, D)`, with L = C * (H/P) * (W/P) and D = 2*D_encoder.
             batch (:class:`aurora.batch.Batch`): Batch to make predictions for.
             patch_res (tuple[int, int, int]): Patch resolution
             lead_time (timedelta): Lead time.
@@ -193,7 +193,7 @@ class Perceiver3DDecoder(nn.Module):
             atmos_vars += tuple(f"{name}_mod" for name in atmos_vars)
 
         # Compress the latent dimension from the U-net skip concatenation.
-        B, L, D = x.shape
+        B, L, D = x.shape  # B, L' and 2*D
 
         # Extract the lat, lon and convert to float32.
         lat, lon = batch.metadata.lat, batch.metadata.lon
@@ -211,7 +211,9 @@ class Perceiver3DDecoder(nn.Module):
         )
 
         # Decode surface vars. Run the head for every surface-level variable.
-        x_surf = torch.stack([self.surf_heads[name](x[..., :1, :]) for name in surf_vars], dim=-1)
+        x_surf = torch.stack(
+            [self.surf_heads[name](x[..., :1, :]) for name in surf_vars], dim=-1
+        )  # (B, (H/P)*(W/P), 1, P*P, V_S) with V_S = 2*V_surf if modulation_head and V_surf otherwise
         x_surf = x_surf.reshape(*x_surf.shape[:3], -1)  # (B, L, 1, V_S*p*p)
         surf_preds = unpatchify(x_surf, len(surf_vars), H, W, self.patch_size)
         surf_preds = surf_preds.squeeze(2)  # (B, V_S, H, W)

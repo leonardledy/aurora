@@ -9,9 +9,12 @@ from typing import Generator
 from pydantic import BaseModel
 
 from aurora import Batch
-from aurora.foundry.client.foundry import FoundryClient
-from aurora.foundry.common.channel import CommunicationChannel, iterate_prediction_files
-from aurora.foundry.common.model import models
+from Aurora_Codebase.aurora.foundry.client.foundry import FoundryClient
+from Aurora_Codebase.aurora.foundry.common.channel import (
+    CommunicationChannel,
+    iterate_prediction_files,
+)
+from Aurora_Codebase.aurora.foundry.common.model import models
 
 __all__ = ["SubmissionError", "submit"]
 
